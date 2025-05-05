@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import MetaData, Table, Column, Integer, String, ForeignKey
+from typing import Optional, List
 
 # -- source: https://docs.sqlalchemy.org/en/20/tutorial/engine.html --
 
@@ -67,3 +69,61 @@ with Session(engine) as session:
 
 # -- source: https://docs.sqlalchemy.org/en/20/tutorial/metadata.html --
 
+# metadata is used to describe the database schema (tables, columns, etc.)
+# it is used for performing DDL operations
+metadata = MetaData()
+
+user_table = Table(
+    "user_account",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String(30), nullable=False),
+    Column("fullname", String, nullable=False),
+)
+
+print(user_table.c.name)
+
+address_table = Table(
+    "address",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("user_id", ForeignKey("user_account.id"), nullable=False),
+    Column("email_address", String, nullable=False),
+)
+
+metadata.create_all(engine)
+
+# Using the ORM
+
+
+class Base(DeclarativeBase):  # this creates the metadata object for us
+    pass
+
+
+class User(Base):
+    __tablename__ = "user_account"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(30))
+    fullname: Mapped[Optional[str]]
+
+    addresses: Mapped[List["Address"]] = relationship(back_populates="user")
+
+    def __repr__(self) -> str:
+        return f"User(id={self.id!r}, name={self.name!r}, fullname={self.fullname!r})"
+
+
+class Address(Base):
+    __tablename__ = "address"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email_address: Mapped[str] = mapped_column(String, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_account.id"))
+
+    user: Mapped["User"] = relationship(back_populates="addresses")
+
+    def __repr__(self) -> str:
+        return f"Address(id={self.id!r}, email_address={self.email_address!r})"
+
+
+Base.metadata.create_all(engine)
